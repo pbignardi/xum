@@ -5,7 +5,7 @@ import libtmux
 import typer
 
 import xum.utils as utils
-from xum.fetchers import fd, zoxide
+from xum.fetchers import registered_fetchers
 
 APP_NAME = "xum"
 
@@ -22,8 +22,7 @@ def create():
     server = libtmux.Server()
 
     # prompt for session with fzf
-    fetchers = (fd, zoxide)
-    if out := utils.fzf_choose(fetchers):
+    if out := utils.fzf_choose(registered_fetchers):
         session_path = pathlib.Path(out).absolute()
         assert session_path.exists()
     else:
