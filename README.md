@@ -18,6 +18,7 @@ pipx install xum
 ## Usage
 `xum` is a simple Tmux session manager, it can be used to **create**, **attach to** and **delete** sessions.
 
+There are four subcommands:
 - `create`: list available directories among the ones provided (see below) and open a new window of a new session.
 - `here`: create a new session in the current directory, for directory you visit less often.
 - `switch`: list the currently open sessions and attach to the selected one.
