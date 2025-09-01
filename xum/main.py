@@ -1,29 +1,63 @@
+import argparse
+import asyncio
 import os
 import pathlib
 
-import libtmux
-import typer
-
-import xum.utils as utils
-from xum.fetchers import registered_fetchers
+from xum import utils
+from xum.fetchers import CustomPaths, Fd, Zoxide
+from xum.fzf import Fzf
+from xum.tmux import Tmux
 
 APP_NAME = "xum"
 
-app = typer.Typer(
-    name=APP_NAME,
-    add_completion=False,
-    help="Manage Tmux sessions with fuzzy powers.",
-)
+
+def app():
+    parser = argparse.ArgumentParser(
+        prog=APP_NAME,
+        description="Manage Tmux sessions with fuzzy powers",
+    )
+
+    cmd = parser.add_subparsers(required=True)
+    parser_create = cmd.add_parser("create", help="create a new session")
+    parser_switch = cmd.add_parser("switch", help="switch to a session")
+    parser_here = cmd.add_parser("here", help="create session in cwd")
+    parser_close = cmd.add_parser("close", help="close sessions")
+
+    parser_create.set_defaults(func=lambda: asyncio.run(create()))
+    parser_switch.set_defaults(func=lambda: asyncio.run(switch()))
+    parser_here.set_defaults(func=here)
+    parser_close.set_defaults(func=close)
+
+    args = parser.parse_args()
+    args.func()
 
 
-@app.command(help="Create a new session")
-def create():
-    # connect to tmux server
-    server = libtmux.Server()
+async def create():
+    # create a queue for passing entries
+    queue = asyncio.Queue()
+
+    # create consumer task
+    fzf = Fzf()
+    await fzf.init()
+    consumer = asyncio.create_task(fzf.async_run(queue))
+
+    # define producers
+    producers = (Fd(), Zoxide(), CustomPaths())
+    for p in producers:
+        await p.init()
+
+    # create and execute producer tasks
+    async with asyncio.TaskGroup() as group:
+        for p in producers:
+            group.create_task(p.enqueue(queue))
+
+    # signal consumer to stop looking at the queue
+    await queue.put(fzf.STOP)
+    await queue.join()
 
     # prompt for session with fzf
-    if out := utils.fzf_choose(registered_fetchers):
-        session_path = pathlib.Path(out).absolute()
+    if selected := await consumer:
+        session_path = pathlib.Path(selected.strip()).absolute()
         assert session_path.exists()
     else:
         return
@@ -31,70 +65,78 @@ def create():
     # sanitize session name
     session_name = utils.session_name(session_path)
 
+    # create tmux interface
+    tmux = Tmux()
+
     # check if session already exists
-    if not server.has_session(session_name):
+    if session_name not in tmux.sessions():
         assert session_path.is_absolute()
-        server.new_session(session_name, start_directory=session_path)
+        tmux.create_session(session_name, basedir=str(session_path))
 
     # switch client or attach to new session
     if os.getenv("TMUX"):
-        server.switch_client(session_name)
+        tmux.switch_client(session_name)
     else:
-        server.attach_session(session_name)
+        tmux.attach_session(session_name)
 
 
-@app.command(help="Switch to session")
-def switch():
+async def switch():
     # connect to tmux server
-    server = libtmux.Server()
+    queue = asyncio.Queue()
 
-    def session_fetcher():
-        return (s.name for s in server.sessions)
+    # create consumer task
+    fzf = Fzf()
+    await fzf.init()
+    consumer = asyncio.create_task(fzf.async_run(queue))
 
-    # prompt for session with fzf
-    session_name = utils.fzf_choose((session_fetcher,)).strip()
-    if session_name:
-        assert server.has_session(session_name)
-    else:
-        return
+    # create tmux interface
+    tmux = Tmux()
 
-    # switch client or attach to session
+    # create and execute producer tasks
+    async with asyncio.TaskGroup() as group:
+        group.create_task(tmux.enqueue_sessions(queue))
+
+    # signal consumer to stop looking at the queue
+    await queue.put(fzf.STOP)
+    await queue.join()
+
+    session_name = await consumer
+
+    # switch client or attach to new session
     if os.getenv("TMUX"):
-        server.switch_client(session_name)
+        tmux.switch_client(session_name)
     else:
-        server.attach_session(session_name)
+        tmux.attach_session(session_name)
 
 
-@app.command(help="Close existing sessions")
 def close():
     # connect to tmux server
-    server = libtmux.Server()
+    tmux = Tmux()
 
-    def session_fetcher():
-        return (s.name for s in server.sessions)
+    # init fzf object
+    fzf = Fzf()
 
-    session_names = map(
-        str.strip, utils.fzf_choose((session_fetcher,), "-m").splitlines()
-    )
+    selected = fzf.run(tmux.sessions())
 
-    for name in session_names:
-        assert server.has_session(name.strip())
+    for name in selected:
         print(f"XUM: quitting session '{name.strip()}'")
-        server.kill_session(name.strip())
+        assert name in tmux.sessions()
+        tmux.kill_session(name.strip())
 
 
-@app.command(help="Create session at the current working directory")
 def here():
-    server = libtmux.Server()
+    # get tmux interface
+    tmux = Tmux()
 
     session_path = pathlib.Path().absolute()
     assert session_path.exists()
 
     session_name = utils.session_name(session_path).strip()
-    if not server.has_session(session_name):
-        server.new_session(session_name, start_directory=session_path)
+
+    if session_name not in tmux.sessions():
+        tmux.create_session(session_name, basedir=str(session_path))
 
     if os.getenv("TMUX"):
-        server.switch_client(session_name)
+        tmux.switch_client(session_name)
     else:
-        server.attach_session(session_name)
+        tmux.attach_session(session_name)

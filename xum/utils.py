@@ -1,39 +1,62 @@
+import asyncio
 import pathlib
-import subprocess
-from contextlib import redirect_stdout
-from typing import Callable, Iterable
+
+SIGNAL = None
 
 
-def fzf_choose(data_fetchers: Iterable[Callable], *opts: str) -> str:
-    """Run Fzf with choices given by the data fetchers"""
-    args = ("fzf", "--tmux", *opts)
+async def select_new_session():
+    """
+    Async selector for Tmux sessions. Uses all producers: fd, zoxide, custom paths.
+    """
+    queue = asyncio.Queue()
 
-    proc = subprocess.Popen(
-        args,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        text=True,
-    )
+    # create consumer task
+    consumer = asyncio.create_task(fzf_consumer(queue))
 
-    # setup process stream
-    with redirect_stdout(proc.stdin):
-        for fetcher in data_fetchers:
-            for opt in fetcher():
-                print(opt, flush=True)
+    # create and execute producer tasks
+    async with asyncio.TaskGroup() as group:
+        group.create_task(fd_producer(queue))
+        group.create_task(zoxide_producer(queue))
+        group.create_task(custompath_producer(queue))
 
-    if proc.stdin:
-        proc.stdin.close()
+    # signal consumer to stop looking at the queue
+    await queue.put(SIGNAL)
+    await queue.join()
 
-    output = ""
-    if proc.stdout:
-        output = proc.stdout.read()
-    return output
+    # retrieve output
+    return await consumer
 
 
-def minify_path(path: pathlib.Path) -> pathlib.Path:
+async def select_existing_session():
+    """
+    Async selector for existing Tmux sessions.
+    """
+    queue = asyncio.Queue()
+
+    # create consumer task
+    consumer = asyncio.create_task(fzf_consumer(queue))
+
+    # create and execute producer tasks
+    async with asyncio.TaskGroup() as group:
+        group.create_task(tmuxsessions_producer(queue))
+
+    # signal consumer to stop looking at the queue
+    await queue.put(SIGNAL)
+    await queue.join()
+
+    # retrieve output
+    return await consumer
+
+
+def minify_path(path: pathlib.Path) -> str:
     """Replace /home/$USER with ~ in a path"""
-    path_string = str(path).replace(str(path.home()), "~")
-    return pathlib.Path(path_string)
+
+    home = pathlib.Path.home()
+    if home in path.parents:
+        item = f"~/{str(path.relative_to(home))}"
+    else:
+        item = str(path)
+    return item
 
 
 def session_name(session_path: pathlib.Path) -> str:

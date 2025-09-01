@@ -1,8 +1,6 @@
 import pathlib
 import tomllib
 
-import typer
-
 CONFIG_FILE = "~/.config/xum/xum.toml"
 
 
@@ -16,7 +14,7 @@ class Config:
             if path.exists():
                 self.search_paths.append(path)
             else:
-                typer.secho(f"{path} not found. I'm going to ignore it.", fg="yellow")
+                print(f"{path} not found. I'm going to ignore it.")
 
         # custom paths
         self.custom_paths: list[pathlib.Path] = []
@@ -26,7 +24,7 @@ class Config:
             if path.exists():
                 self.custom_paths.append(path)
             else:
-                typer.secho(f"{path} not found. I'm going to ignore it.", fg="yellow")
+                print.secho(f"{path} not found. I'm going to ignore it.")
 
 
 def load_config():
