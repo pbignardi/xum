@@ -24,7 +24,7 @@ class Config:
             if path.exists():
                 self.custom_paths.append(path)
             else:
-                print.secho(f"{path} not found. I'm going to ignore it.")
+                print(f"{path} not found. I'm going to ignore it.")
 
 
 def load_config():
