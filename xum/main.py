@@ -10,6 +10,23 @@ from xum.tmux import Tmux
 
 APP_NAME = "xum"
 
+zsh_cmp_strings = """
+alias x="xum create"
+function zle_xumcreate() {
+    xum create
+    return
+}
+function zle_xumswitch() {
+    xum switch
+    return
+}
+
+zle -N zle_xumcreate
+zle -N zle_xumswitch
+bindkey "^B" zle_xumcreate
+bindkey "^F" zle_xumswitch
+"""
+
 
 def app():
     parser = argparse.ArgumentParser(
@@ -22,11 +39,16 @@ def app():
     parser_switch = cmd.add_parser("switch", help="switch to a session")
     parser_here = cmd.add_parser("here", help="create session in cwd")
     parser_close = cmd.add_parser("close", help="close sessions")
+    parser_zsh = cmd.add_parser("zsh", help="output zsh setup")
 
     parser_create.set_defaults(func=lambda: asyncio.run(create()))
     parser_switch.set_defaults(func=lambda: asyncio.run(switch()))
     parser_here.set_defaults(func=here)
     parser_close.set_defaults(func=close)
+    parser_zsh.set_defaults(func=zsh_completions)
+
+    # setup completions
+    zsh = parser.add_argument("--zsh", action="store_true")
 
     args = parser.parse_args()
     args.func()
@@ -142,3 +164,8 @@ def here():
         tmux.switch_client(session_name)
     else:
         tmux.attach_session(session_name)
+
+
+def zsh_completions():
+    # output zsh completions
+    print(zsh_cmp_strings)
