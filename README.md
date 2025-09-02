@@ -8,6 +8,7 @@ as most tmux sessionizers.
 - `python` (at least 3.13)
 - `zoxide`
 - `fzf`
+- `make` (devel only)
 
 ## Installation
 Currently only `pipx`, maybe in the future I'll release a standalone binary.
@@ -45,3 +46,17 @@ Define the directories on which to run `fd`. This will look for all directories 
 
 - `custom_paths`
 You can add individual directories to the list of available paths.
+
+## Build from source
+You can build your own version of `xum` using `nuitka`, which is a development requirement of the project.
+Ensure `make` is installed on your system.
+To build the binary use
+```bash
+make build
+```
+The binary can be found at `build/xum`.
+To install it just copy it to a directory which is on PATH, or run
+```bash
+make install
+```
+to install it to `~/.local/bin`.
