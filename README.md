@@ -11,7 +11,9 @@ as most tmux sessionizers.
 - `make` (devel only)
 
 ## Installation
-Currently only `pipx`, maybe in the future I'll release a standalone binary.
+Download the binary from the *Releases* and place it into a directory that's on PATH.
+
+Otherwise, using `pipx`
 ```bash
 pipx install xum
 ```
