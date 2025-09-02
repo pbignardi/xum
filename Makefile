@@ -1,8 +1,10 @@
 devsetup:
 	@uv sync
 
-build: devsetup
+build: devsetup clean
 	@uv run nuitka --onefile --output-file=xum --output-dir=build main.py 
+	@mkdir -p dist
+	@cp build/xum dist/xum
 
 install:
 	@cp -f build/xum ~/.local/bin/xum
