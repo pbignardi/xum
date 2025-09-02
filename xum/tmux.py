@@ -14,7 +14,7 @@ class Tmux:
 
         assert proc.stdout
         async for line in proc.stdout:
-            await queue.put(line.decode().strip())
+            await queue.put((line.decode().strip(), line.decode().strip()))
 
     def sessions(self):
         args = ("tmux", "list-sessions", "-F", "#{session_name}")
@@ -25,7 +25,7 @@ class Tmux:
             yield line.decode().strip()
 
     def create_session(self, name: str, basedir: str):
-        args = ("tmux", "new-session", "-c", basedir, "-s", name)
+        args = ("tmux", "new-session", "-d", "-c", basedir, "-s", name)
         subprocess.call(args)
 
     def switch_client(self, name: str):

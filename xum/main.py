@@ -57,7 +57,7 @@ async def create():
 
     # prompt for session with fzf
     if selected := await consumer:
-        session_path = pathlib.Path(selected.strip()).absolute()
+        session_path = pathlib.Path(selected.strip()).expanduser().absolute()
         assert session_path.exists()
     else:
         return
