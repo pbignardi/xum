@@ -99,6 +99,10 @@ jobs:
           name: dist
           path: dist/
 
+      - name: Build binary
+        run: |
+          make build && make release
+
   pypi_publish:
     name: Upload release to PyPI
     needs: [setup_and_build, details]
