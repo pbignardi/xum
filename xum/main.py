@@ -101,6 +101,8 @@ async def switch():
     await queue.join()
 
     session_name = await consumer
+    if not session_name:
+        return
 
     # switch client or attach to new session
     if os.getenv("TMUX"):
