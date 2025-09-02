@@ -101,7 +101,7 @@ jobs:
 
       - name: Build binary
         run: |
-          make build && make release
+          make build
 
   pypi_publish:
     name: Upload release to PyPI
